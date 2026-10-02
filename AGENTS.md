@@ -7,7 +7,7 @@ Guidance for AI coding agents working in this repository.
 - `docs/` is public and committed: documentation on parts of the application. Work that
   establishes a convention or component documents it there. Reference only: no tutorials or
   rationale.
-- `local-notes/` is gitignored and holds personal notes and brainstorms. Read them for context when
+- `docs-local/` is gitignored and holds personal notes and brainstorms. Read them for context when
   pointed to them, but never cite or link them from committed files or Linear issues.
 - The app is general-use. Global names and descriptions never tie it to one strategy; strategy
   wording stays in the command or module that implements it.
