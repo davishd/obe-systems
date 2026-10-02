@@ -1,0 +1,33 @@
+{
+  "name": "obe-systems",
+  "version": "0.0.0",
+  "private": true,
+  "description": "",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.1.1",
+      "onFail": "download"
+    }
+  },
+  "scripts": {
+    "cli": "tsx --env-file=.env --env-file-if-exists=.env.local src/cli.ts",
+    "typecheck": "tsc",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^22.20.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "commander": "^15.0.0",
+    "zod": "^4.6.5"
+  }
+}
