@@ -7,7 +7,8 @@ Requires Node 22 or later and pnpm. `pnpm install` installs dependencies.
 | Script | Runs | Purpose |
 |---|---|---|
 | `pnpm cli` | `tsx src/cli.ts` with `.env` and `.env.local` loaded | Run the CLI; `pnpm cli --help` lists commands |
-| `pnpm typecheck` | `tsc` | Check types; emits no files |
+| `pnpm test` | `vitest run` | Run the test suite |
+| `pnpm typecheck` | `tsc` | Check types |
 | `pnpm lint` | `biome check .` | Report lint, formatting, and import-order problems |
 | `pnpm format` | `biome check --write .` | Fix what `lint` reports where a safe fix exists |
 
