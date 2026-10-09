@@ -6,7 +6,7 @@ Requires Node 22 or later and pnpm. `pnpm install` installs dependencies.
 
 | Script | Runs | Purpose |
 |---|---|---|
-| `pnpm cli` | `tsx src/cli.ts` with `.env` and `.env.local` loaded | Run the CLI; `pnpm cli --help` lists commands |
+| `pnpm cli` | `tsx src/cli/index.ts` with `.env` and `.env.local` loaded | Run the CLI; `pnpm cli --help` lists commands |
 | `pnpm test` | `vitest run` | Run the test suite |
 | `pnpm typecheck` | `tsc` | Check types |
 | `pnpm lint` | `biome check .` | Report lint, formatting, and import-order problems |

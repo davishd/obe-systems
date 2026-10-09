@@ -24,6 +24,9 @@ const refreshResponseSchema = tokenResponseSchema.partial({
 /** The app credentials and token file that authenticated requests need. */
 export type Session = { config: Config; tokensPath: string };
 
+/** When the access token and the 7-day login expire. */
+export type LoginStatus = { accessExpiresAt: Date; loginExpiresAt: Date };
+
 /**
  * Builds the Schwab login URL with a new random `state`.
  *
@@ -36,9 +39,7 @@ export function createAuthorization(config: Config): {
   state: string;
 } {
   if (!config.SCHWAB_APP_KEY || !config.SCHWAB_APP_SECRET) {
-    throw new SchwabError(
-      "Set SCHWAB_APP_KEY and SCHWAB_APP_SECRET in .env.local.",
-    );
+    throw new SchwabError("Set SCHWAB_APP_KEY and SCHWAB_APP_SECRET.");
   }
   const state = randomUUID();
   const params = new URLSearchParams({
@@ -52,20 +53,54 @@ export function createAuthorization(config: Config): {
 }
 
 /**
+ * Finishes a login: checks the callback URL, trades its code for tokens, and saves them.
+ *
+ * @param session - App credentials and token file.
+ * @param callbackUrl - The URL Schwab redirected the browser to.
+ * @param state - The `state` returned by {@link createAuthorization}.
+ * @returns When the new access token and login expire.
+ * @throws SchwabError when the callback URL is invalid or Schwab rejects the code.
+ */
+export async function completeLogin(
+  session: Session,
+  callbackUrl: string,
+  state: string,
+): Promise<LoginStatus> {
+  const code = parseCallback(callbackUrl, state);
+  const tokens = await exchangeCode(session.config, code);
+  await writeTokens(session.tokensPath, tokens);
+  return loginStatus(tokens);
+}
+
+/**
+ * Reads when the saved access token and login expire, without returning the tokens.
+ *
+ * @param tokensPath - Token file to read.
+ * @returns The expiration times.
+ * @throws LoginRequiredError when there is no valid token file.
+ */
+export async function getLoginStatus(tokensPath: string): Promise<LoginStatus> {
+  const tokens = await readTokens(tokensPath);
+  return loginStatus(tokens);
+}
+
+/**
  * Extracts the authorization code from the URL Schwab redirected the browser to.
  *
- * @param pasted - The redirected URL copied from the browser's address bar.
+ * @param callbackUrl - The redirected URL.
  * @param state - The `state` sent in the authorize URL.
  * @returns The authorization code.
- * @throws SchwabError when the text is not a URL, has no code, or carries another state.
+ * @throws SchwabError when the URL is invalid, has no code, or carries another state.
  */
-export function parseCallback(pasted: string, state: string): string {
-  const url = URL.parse(pasted.trim());
-  if (!url) throw new SchwabError("The pasted text is not a URL.");
+export function parseCallback(callbackUrl: string, state: string): string {
+  const url = URL.parse(callbackUrl.trim());
+  if (!url) throw new SchwabError("The callback URL is not valid.");
   const code = url.searchParams.get("code");
-  if (!code) throw new SchwabError("The pasted URL has no code.");
+  if (!code) throw new SchwabError("The callback URL has no code.");
   if (url.searchParams.get("state") !== state) {
-    throw new SchwabError("The pasted URL is from a different login attempt.");
+    throw new SchwabError(
+      "The callback URL is from a different login attempt.",
+    );
   }
   return code;
 }
@@ -88,9 +123,8 @@ export async function exchangeCode(
     redirect_uri: config.SCHWAB_CALLBACK_URL,
   });
   if (!response.ok) {
-    throw new LoginRequiredError(
-      `Schwab rejected the login code: ${await describeResponse(response)}.`,
-    );
+    const detail = await describeResponse(response);
+    throw new LoginRequiredError(`Schwab rejected the login code: ${detail}.`);
   }
   const body = await parseTokenResponse(response, tokenResponseSchema);
   return {
@@ -128,14 +162,14 @@ async function refreshTokens(config: Config, tokens: Tokens): Promise<Tokens> {
     refresh_token: tokens.refreshToken,
   });
   if (response.status === 400 || response.status === 401) {
+    const detail = await describeResponse(response);
     throw new LoginRequiredError(
-      `Schwab rejected the refresh token: ${await describeResponse(response)}.`,
+      `Schwab rejected the refresh token: ${detail}.`,
     );
   }
   if (!response.ok) {
-    throw new SchwabError(
-      `Schwab token refresh failed: ${await describeResponse(response)}`,
-    );
+    const detail = await describeResponse(response);
+    throw new SchwabError(`Schwab token refresh failed: ${detail}`);
   }
   const body = await parseTokenResponse(response, refreshResponseSchema);
   return {
@@ -164,7 +198,8 @@ async function parseTokenResponse<T>(
   response: Response,
   schema: z.ZodType<T>,
 ): Promise<T> {
-  const result = schema.safeParse(await response.json().catch(() => undefined));
+  const body = await response.json().catch(() => undefined);
+  const result = schema.safeParse(body);
   if (!result.success) {
     throw new SchwabError(
       `Unexpected token response from Schwab\n${z.prettifyError(result.error)}`,
@@ -173,8 +208,16 @@ async function parseTokenResponse<T>(
   return result.data;
 }
 
+function loginStatus(tokens: Tokens): LoginStatus {
+  return {
+    accessExpiresAt: new Date(tokens.accessExpiresAt),
+    loginExpiresAt: loginExpiresAt(tokens),
+  };
+}
+
 async function describeResponse(response: Response): Promise<string> {
-  return `${response.status} ${await response.text()}`.trim();
+  const text = await response.text();
+  return `${response.status} ${text}`.trim();
 }
 
 function expiresAt(expiresInSeconds: number): string {

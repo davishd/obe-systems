@@ -1,15 +1,8 @@
-/** A failure the user can act on, such as a rejected Schwab request or a bad pasted URL. */
+/** A failure the user can act on, such as a rejected Schwab request or an invalid callback URL. */
 export class SchwabError extends Error {}
 
 /** A failure that only a new browser login fixes. */
-export class LoginRequiredError extends SchwabError {
-  /**
-   * @param reason - Why the login is needed, as a full sentence.
-   */
-  constructor(reason: string) {
-    super(`${reason} Run \`pnpm cli auth login\`.`);
-  }
-}
+export class LoginRequiredError extends SchwabError {}
 
 /**
  * Rethrows a `fetch` rejection as a SchwabError naming the network cause.

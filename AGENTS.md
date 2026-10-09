@@ -12,6 +12,21 @@ Guidance for AI coding agents working in this repository.
 - The app is general-use. Global names and descriptions never tie it to one strategy; strategy
   wording stays in the command or module that implements it.
 
+## Architecture
+
+- Code outside `src/cli/` is core. It returns data or throws typed errors, and never prints,
+  prompts, reads `process.env`, or names a CLI command. `pnpm lint` enforces this.
+- Each capability, such as Schwab access or backtesting, has its own folder under `src/`.
+  `docs/architecture.md` lists them and their allowed imports.
+- Provider folders such as `src/schwab/` hold that provider's API details. Other capabilities take
+  the data they need as input instead of importing a provider. Add a shared contract only when a
+  second provider or consumer needs one.
+
+## Code style
+
+- Avoid nested calls; assign a call's result to a named variable before passing it on. Nest only
+  where naming the value adds nothing.
+
 ## Workflow
 
 - Work is tracked in Linear, team "OBE Systems" (identifiers like `OBE-2`). An issue may take

@@ -1,10 +1,9 @@
 import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LoginRequiredError } from "./errors.ts";
 import {
-  formatStatus,
   loginExpiresAt,
   readTokens,
   type Tokens,
@@ -66,35 +65,6 @@ describe("loginExpiresAt", () => {
   it("is seven days after the refresh token was issued", () => {
     expect(loginExpiresAt(tokens)).toEqual(
       new Date("2026-10-09T12:00:00.000Z"),
-    );
-  });
-});
-
-describe("formatStatus", () => {
-  const accessTime = new Date(tokens.accessExpiresAt).toLocaleString();
-  const loginTime = new Date("2026-10-09T12:00:00.000Z").toLocaleString();
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("says when the access token and the login expire", () => {
-    vi.setSystemTime(new Date("2026-10-02T12:10:00.000Z"));
-    expect(formatStatus(tokens)).toBe(
-      [
-        `Access token  expires ${accessTime}`,
-        `Login         expires ${loginTime}`,
-      ].join("\n"),
-    );
-  });
-
-  it("marks times that have passed as expired", () => {
-    vi.setSystemTime(new Date("2026-10-09T12:00:00.000Z"));
-    expect(formatStatus(tokens)).toBe(
-      [
-        `Access token  expired ${accessTime}`,
-        `Login         expired ${loginTime}`,
-      ].join("\n"),
     );
   });
 });
