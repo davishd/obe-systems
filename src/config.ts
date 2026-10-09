@@ -17,6 +17,6 @@ export type Config = z.infer<typeof configSchema>;
  * @returns The typed config.
  * @throws ZodError listing each missing or malformed variable.
  */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+export function loadConfig(env: NodeJS.ProcessEnv): Config {
   return configSchema.parse(env);
 }

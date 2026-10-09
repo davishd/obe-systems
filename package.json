@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "cli": "tsx --env-file=.env --env-file-if-exists=.env.local src/cli.ts",
+    "cli": "tsx --env-file=.env --env-file-if-exists=.env.local src/cli/index.ts",
     "test": "vitest run",
     "typecheck": "tsc",
     "lint": "biome check .",

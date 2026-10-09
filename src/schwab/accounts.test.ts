@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Account, formatAccounts, getAccounts } from "./accounts.ts";
+import { type Account, getAccounts } from "./accounts.ts";
 import type { Session } from "./auth.ts";
 import { writeTokens } from "./tokens.ts";
 
@@ -74,29 +74,5 @@ describe("getAccounts", () => {
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       "https://api.schwabapi.com/trader/v1/accounts",
     );
-  });
-});
-
-describe("formatAccounts", () => {
-  it("prints each account's masked number, type, and current balances", () => {
-    expect(formatAccounts([margin, cash])).toBe(
-      [
-        "****5678  MARGIN",
-        "  Equity                   $40,123.45",
-        "  Buying power             $71,000.00",
-        "  Available funds          $35,500.00",
-        "  Maintenance requirement   $4,537.04",
-        "",
-        "****4321  CASH",
-        "  Total cash                     $5,000.00",
-        "  Cash available for trading     $5,000.00",
-        "  Cash available for withdrawal  $4,800.00",
-        "  Unsettled cash                   $200.00",
-      ].join("\n"),
-    );
-  });
-
-  it("says so when no accounts are linked", () => {
-    expect(formatAccounts([])).toBe("No linked accounts.");
   });
 });

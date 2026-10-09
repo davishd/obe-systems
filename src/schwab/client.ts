@@ -20,16 +20,16 @@ export async function schwabGet<T>(
   schema: z.ZodType<T>,
 ): Promise<T> {
   const accessToken = await getAccessToken(session);
-  const response = await fetch(
-    new URL(path, session.config.SCHWAB_API_BASE_URL),
-    {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  ).catch(networkFailure);
+  const url = new URL(path, session.config.SCHWAB_API_BASE_URL);
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  }).catch(networkFailure);
   if (!response.ok) {
-    throw new SchwabError(await describeFailure(path, response));
+    const message = await describeFailure(path, response);
+    throw new SchwabError(message);
   }
-  const result = schema.safeParse(await response.json().catch(() => undefined));
+  const body = await response.json().catch(() => undefined);
+  const result = schema.safeParse(body);
   if (!result.success) {
     throw new SchwabError(
       `Unexpected response from GET ${path}\n${z.prettifyError(result.error)}`,
@@ -42,10 +42,9 @@ async function describeFailure(
   path: string,
   response: Response,
 ): Promise<string> {
-  const body = serviceErrorSchema.safeParse(
-    await response.json().catch(() => undefined),
-  );
-  const message = body.success ? body.data.message : response.statusText;
+  const body = await response.json().catch(() => undefined);
+  const parsed = serviceErrorSchema.safeParse(body);
+  const message = parsed.success ? parsed.data.message : response.statusText;
   const correlId = response.headers.get("Schwab-Client-CorrelId");
   const suffix = correlId ? ` (correlation ID ${correlId})` : "";
   return `GET ${path} failed with ${response.status}: ${message}${suffix}`;

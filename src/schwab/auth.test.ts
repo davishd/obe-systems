@@ -4,14 +4,16 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Config } from "../config.ts";
 import {
+  completeLogin,
   createAuthorization,
   exchangeCode,
   getAccessToken,
+  getLoginStatus,
   parseCallback,
   type Session,
 } from "./auth.ts";
 import { LoginRequiredError, SchwabError } from "./errors.ts";
-import { type Tokens, writeTokens } from "./tokens.ts";
+import { readTokens, type Tokens, writeTokens } from "./tokens.ts";
 
 const config: Config = {
   SCHWAB_API_BASE_URL: "https://api.schwabapi.com",
@@ -21,6 +23,15 @@ const config: Config = {
 };
 
 const NOW = new Date("2026-10-02T12:00:00.000Z");
+
+const tokenResponse = {
+  access_token: "access-1",
+  refresh_token: "refresh-1",
+  expires_in: 1800,
+  token_type: "Bearer",
+  scope: "api",
+  id_token: "jwt",
+};
 
 function stubFetch(status: number, body: unknown) {
   const fetchMock = vi.fn<typeof fetch>(async () =>
@@ -83,12 +94,12 @@ describe("createAuthorization", () => {
 
 describe("parseCallback", () => {
   it("returns the code decoded exactly once", () => {
-    const pasted =
+    const callbackUrl =
       "https://127.0.0.1:3000/?code=C0.abc%40&session=xyz&state=s1";
-    expect(parseCallback(pasted, "s1")).toBe("C0.abc@");
+    expect(parseCallback(callbackUrl, "s1")).toBe("C0.abc@");
   });
 
-  it("ignores whitespace around the pasted URL", () => {
+  it("ignores whitespace around the callback URL", () => {
     expect(
       parseCallback("  https://127.0.0.1:3000/?code=abc&state=s1\n", "s1"),
     ).toBe("abc");
@@ -99,21 +110,12 @@ describe("parseCallback", () => {
     ["the code is missing", "https://127.0.0.1:3000/?state=s1"],
     ["the state is missing", "https://127.0.0.1:3000/?code=abc"],
     ["the state differs", "https://127.0.0.1:3000/?code=abc&state=s2"],
-  ])("throws SchwabError when %s", (_, pasted) => {
-    expect(() => parseCallback(pasted, "s1")).toThrow(SchwabError);
+  ])("throws SchwabError when %s", (_, callbackUrl) => {
+    expect(() => parseCallback(callbackUrl, "s1")).toThrow(SchwabError);
   });
 });
 
 describe("exchangeCode", () => {
-  const tokenResponse = {
-    access_token: "access-1",
-    refresh_token: "refresh-1",
-    expires_in: 1800,
-    token_type: "Bearer",
-    scope: "api",
-    id_token: "jwt",
-  };
-
   it("posts the code and callback URL to the token endpoint with the app credentials", async () => {
     const fetchMock = stubFetch(200, tokenResponse);
     await exchangeCode(config, "C0.abc@");
@@ -149,6 +151,74 @@ describe("exchangeCode", () => {
   it("throws SchwabError when the response has no refresh token", async () => {
     stubFetch(200, { ...tokenResponse, refresh_token: undefined });
     await expect(exchangeCode(config, "C0.abc@")).rejects.toThrow(SchwabError);
+  });
+});
+
+describe("completeLogin", () => {
+  let dir: string;
+  let session: Session;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "obe-login-"));
+    session = { config, tokensPath: join(dir, "tokens.json") };
+  });
+
+  afterEach(() => rm(dir, { recursive: true }));
+
+  it("saves the tokens for the callback's code and returns when they expire", async () => {
+    stubFetch(200, tokenResponse);
+    const callbackUrl = "https://127.0.0.1:3000/?code=C0.abc%40&state=s1";
+    expect(await completeLogin(session, callbackUrl, "s1")).toEqual({
+      accessExpiresAt: new Date("2026-10-02T12:30:00.000Z"),
+      loginExpiresAt: new Date("2026-10-09T12:00:00.000Z"),
+    });
+    expect(await readTokens(session.tokensPath)).toMatchObject({
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+    });
+  });
+
+  it("throws SchwabError without a request or a saved file when the state differs", async () => {
+    const fetchMock = stubFetch(200, tokenResponse);
+    const callbackUrl = "https://127.0.0.1:3000/?code=abc&state=s2";
+    await expect(completeLogin(session, callbackUrl, "s1")).rejects.toThrow(
+      SchwabError,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(readTokens(session.tokensPath)).rejects.toThrow(
+      LoginRequiredError,
+    );
+  });
+});
+
+describe("getLoginStatus", () => {
+  let dir: string;
+  let tokensPath: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "obe-status-"));
+    tokensPath = join(dir, "tokens.json");
+  });
+
+  afterEach(() => rm(dir, { recursive: true }));
+
+  it("returns when the access token and login expire, without the tokens", async () => {
+    await writeTokens(tokensPath, {
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+      accessExpiresAt: "2026-10-02T12:30:00.000Z",
+      refreshIssuedAt: "2026-10-02T12:00:00.000Z",
+    });
+    expect(await getLoginStatus(tokensPath)).toEqual({
+      accessExpiresAt: new Date("2026-10-02T12:30:00.000Z"),
+      loginExpiresAt: new Date("2026-10-09T12:00:00.000Z"),
+    });
+  });
+
+  it("throws LoginRequiredError when there is no token file", async () => {
+    await expect(getLoginStatus(tokensPath)).rejects.toThrow(
+      LoginRequiredError,
+    );
   });
 });
 

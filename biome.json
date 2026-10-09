@@ -12,5 +12,55 @@
     "formatter": {
       "expand": "always"
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "src/**",
+        "!src/cli/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "error"
+          },
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "process": "Only src/cli/ may use terminal and process APIs."
+                }
+              }
+            },
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "commander": "Only src/cli/ may use terminal and process APIs.",
+                  "child_process": "Only src/cli/ may use terminal and process APIs.",
+                  "node:child_process": "Only src/cli/ may use terminal and process APIs.",
+                  "process": "Only src/cli/ may use terminal and process APIs.",
+                  "node:process": "Only src/cli/ may use terminal and process APIs.",
+                  "readline": "Only src/cli/ may use terminal and process APIs.",
+                  "node:readline": "Only src/cli/ may use terminal and process APIs.",
+                  "readline/promises": "Only src/cli/ may use terminal and process APIs.",
+                  "node:readline/promises": "Only src/cli/ may use terminal and process APIs."
+                },
+                "patterns": [
+                  {
+                    "group": [
+                      "**/cli",
+                      "**/cli/**"
+                    ],
+                    "message": "Core code never imports src/cli/."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

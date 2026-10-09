@@ -31,7 +31,8 @@ export async function readTokens(path: string): Promise<Tokens> {
     },
   );
   try {
-    return tokensSchema.parse(JSON.parse(text));
+    const data = JSON.parse(text);
+    return tokensSchema.parse(data);
   } catch {
     throw new LoginRequiredError(`${path} is not a valid token file.`);
   }
@@ -44,9 +45,8 @@ export async function readTokens(path: string): Promise<Tokens> {
  * @param tokens - Tokens to save.
  */
 export async function writeTokens(path: string, tokens: Tokens): Promise<void> {
-  await writeFile(path, `${JSON.stringify(tokens, null, 2)}\n`, {
-    mode: 0o600,
-  });
+  const text = `${JSON.stringify(tokens, null, 2)}\n`;
+  await writeFile(path, text, { mode: 0o600 });
   // `mode` applies only when the file is created.
   await chmod(path, 0o600);
 }
@@ -59,23 +59,4 @@ export async function writeTokens(path: string, tokens: Tokens): Promise<void> {
  */
 export function loginExpiresAt(tokens: Tokens): Date {
   return new Date(Date.parse(tokens.refreshIssuedAt) + LOGIN_LIFETIME_MS);
-}
-
-/**
- * Formats when the access token and the login expire, marking times already past as expired.
- *
- * @param tokens - Saved tokens.
- * @returns One line for the access token and one for the login.
- */
-export function formatStatus(tokens: Tokens): string {
-  const rows: [string, Date][] = [
-    ["Access token", new Date(tokens.accessExpiresAt)],
-    ["Login", loginExpiresAt(tokens)],
-  ];
-  return rows
-    .map(([label, time]) => {
-      const verb = time.getTime() <= Date.now() ? "expired" : "expires";
-      return `${label.padEnd(12)}  ${verb} ${time.toLocaleString()}`;
-    })
-    .join("\n");
 }
